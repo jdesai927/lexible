@@ -1,0 +1,42 @@
+import:
+{import Test.HUnit
+import Test.QuickCheck
+import Control.Monad(liftM)
+import Data.List(intercalate)}
+
+tokens:
+| ([a-z]|[0-9]|\.|_|%|-)+@(([a-z]|[0-9]|-)+\.)+[a-z]+              {Email}
+
+tokentype:
+{data Token = Email String deriving (Eq, Show)}
+
+code:
+
+{
+
+emails :: [String]
+emails = ["travism@seas.upenn.edu", 
+                                       "jdesai@seas.upenn.edu", "funger@seas.upenn.edu", "sweirich@cis.upenn.edu", "hongboz@seas.upenn.edu", "gaboardi@cs.unibo.it", "jinesh.desai@outlook.com"]
+                                       
+-- | The tokens parsed should match exactly the above list.
+test1 :: String -> Test
+test1 s = getAllTokens s ~=? map Email emails
+
+-- | We don't generate '@' in our strings to prevent the generator from creating
+--   a string that is actually a correctly formatted email.
+strGen :: Gen String
+strGen = oneof [elements emails, suchThat arbitrary (not . elem '@')]
+
+-- | As per the generator specifications, the list of tokens generated contains
+--   a random combination of emails and randomly generated strings. Converting
+--   the list of generated tokens to a single string (separated by whitespace)
+--   and getting all matched tokens from this list should yield only strings
+--   from the "emails" list defined above.
+prop_matchAll :: [String] -> Bool
+prop_matchAll ts = all (`elem` emails) $ map (\(Email s) -> s) $ getAllTokens $ intercalate " " ts
+
+main :: IO ()
+main = do s <- readFile "email.txt"
+          _ <- runTestTT $ test1 s
+          quickCheck $ forAll (listOf1 strGen) prop_matchAll
+          print $ getAllTokens s}
