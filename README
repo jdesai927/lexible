@@ -1,0 +1,214 @@
+----------------------------- LEXIBLE --------------------------------
+               the most flexible haskell lexer generator
+By Jinesh Desai (jdesai), Travis McKenzie (travism), Edward Funger (funger)
+
+
+Welcome to Lexible!
+
+CONTENTS
+  1. Package overview
+  2. Testing
+  3. User documentation
+  4. Output file specifics
+  5. Permissible regular expressions
+
+PACKAGE OVERVIEW
+
+  The files in the package are:
+
+  1. ParserTrans.hs (from lecture)
+  2. ParserCombinators.hs (from lecture with modifications)
+  3. Regex.hs (contains type definitions for regular expressions and Glushkov automatons)
+  4. RegexParser.hs (contains definitions for parsers for regular expressions)
+  5. LexFileParse.hs (main module, see user documentation for compilation and usage guide)
+
+  Be sure that, while compiling both the generator package and any generated lexer, that all files from the package and/or the generated lexer are in the same directory.
+
+TESTING
+
+  For instructors, a guide on running our provided tests:
+
+    1. To run the regular expression unit tests, which are in RegexParser.hs, load RegexParser.hs into ghci and run the main method. These tests consist of parsing a regular expression from a string representing that regular expression and matching the parsed regular expression against different strings. There are also tests that
+    check whether regular expressions are parsed correctly from strings. There is one quickcheck property, "prop_dot", which verifies that any string is matched by the ".*" regular expression.
+    
+    2. To test the lexer generator, enter the following into the command prompt:
+
+       ghc -o lexible LexFileParse.hs
+       lexible.exe "email.lx" "EmailLex.hs"
+       ghc EmailLex.hs
+       EmailLex.exe
+
+       This will run a single unit test, which checks whether the file "email.txt", which is in the project directory, was correctly tokenized. There is also a quickcheck property, "prop_matchAll", whose specifics are detailed in the configuration file ("email.lx").
+
+USER DOCUMENTATION
+
+To begin, create a configuration file with a .lx extension. For this
+tutorial, let's call the file "mylex.lx".
+
+  1. Configuration file format
+
+     The first part of the configuration file is the import block. This is
+     to ensure that the generated lexer has all of the necessary packages
+     and can be compiled without issue.
+
+     The import block must have the following syntax:
+
+     CODE:
+       import:
+       {<import statement 1>
+        <import statement 2>}
+
+     Begin with "import:", and follow that with your import statements,
+     in curly braces. If there is more than one import statement, please
+     separate them all with newlines, as the code you enter here will be
+     written to the generated lexer verbatim. Please remember to enter
+     your import statements correctly, as syntax errors will cause the
+     generated file to fail to compile.
+
+     The second part of the configuration file is the tokens. The tokens
+     must be specified by regular expressions, and for each token, you must
+     implement the function that must be run in order to convert the regular
+     expression into a variable of the Token type, a type that you must define
+     yourself later in the configuration file.
+
+     The tokens must have the following syntax:
+
+     CODE:
+       tokens:
+       | x*y*             {TokStr}
+       | x|y              {TokChar . head}
+
+     Start with the "tokens:" tag, followed by a list of tokens. The beginning of each line should be a '|', followed by the regular expression representing the token,
+     followed by whitespaces, and finally, the function, in braces, representing the conversion to a token for each string that matches the given regular expression.
+     Each of these functions must be of type String -> Token, and you must omit function
+     names/headers/type definitions, as these will be generated for you. Be sure your
+     functions are correct, as their definitions are writted verbatim to the generated
+     lexer, and errors in them will cause errors in the generated lexer.
+
+     The third part of the configuration file is the token type definition. You, the
+     user, must define the type Token. It must be called Token, though it may have any
+     number of data constructors or synonyms. Be sure your definition of the Token type
+     matches your functions in the tokens section of the configuration file.
+
+     The token type definition must have the following syntax:
+
+     CODE:
+       tokentype:
+       {data Token = TokStr String | TokChar Char}
+
+     Start with the "tokentype:" tag, followed by, in braces, code block for the definition of the type token. Be sure that your definition is syntactically correct, as this type definition will be written to the generated lexer verbatim, so errors in your type definition will result in errors in the generated lexer.
+
+     The fourth and final part of the configuration is the code section. The code
+     section may contain any code you wish to be written to the generated lexer
+     verbatim. In addition to this, it MUST contain a main function, which of course
+     must be of type IO (). Please ensure that anything you enter in this section is
+     syntactically correct, as it is copied verbatim.
+
+     The code section must have the following syntax:
+
+     CODE:
+       code:
+       {main :: IO ()
+        main = do s <- readFile "test.txt"
+                  print $ getAllTokens s}
+
+     Start with the "code:" tag, and then define your code and main function in braces below it. You may use the "getAllTokens" function, which is provided by the generated lexer.
+
+     CODE:
+       getAllTokens :: String -> [Token]
+
+     This function simply extracts all of the tokens that can be matched from a given string. The matching priority order is the order in which you specified the tokens in the token section. Note that the string matched against by this function are words separated by whitespace.
+
+     You may also use the "matchToken" function, which is also provided by the generated lexer.
+
+     CODE:
+       matchToken :: String -> Maybe Token
+
+     For an input string, if it matches any token, Just <token> is returned, where <token> is the token returned by the function corresponding to the first regular expression the string matched, or Nothing if no tokens are matched.
+
+     Once you're finished with the configuration file, you're ready to generate your lexer!
+
+  2. Generating the lexer
+    
+    First, compile LexFileParse.hs, if you haven't done so already. To do this, simply enter into your command line in the directory in which LexFileParse.hs is located:
+
+    CODE:
+      ghc -o lexible LexFileParse.hs
+
+    Be sure that ParserTrans.hs, ParserCombinators.hs, Regex.hs, and RegexParser.hs are all in the same directory as LexFileParse.hs when you do this.
+
+    Then, enter the following to run the generator:
+
+    CODE:
+      lexible <CONFIG-FILE> <OUTPUT-FILE>
+
+    where the first argument is your configuration file (in our case, mylex.lx) and the second argument is the desired output file name (let's call the output file mylex.hs).
+
+    If there were no error messages, your lexer was successfully generated! Simply compile the file:
+
+    CODE:
+      ghc -o mylex mylex.hs
+
+    and run it! Remember to include the "getArgs" function  from the System.Environment module in your import block if you're going to use command line arguments for the generated lexer. Additionally, when compiling the generated lexer, be sure that ParserTrans.hs, ParserCombinators.hs, and Regex.hs are all in the same folder as the generated .hs file, as they are all necessary for the lexer to compile.
+
+OUTPUT FILE SPECIFICS
+
+  The output file will be composed of the following parts:
+
+  1. Header
+     
+     Contains the module definition (Main) and all import statements.
+
+  2. Map
+
+     CODE:
+       actions :: [(RegInfo, String -> Token)]
+
+     "actions" is a variable that represents a mapping from RegInfo variables (RegInfos represent Glushkov automatons used for regular expression matching) to String -> Token functions. This map is used to determine how a given string can be tokenized.
+
+  3. Token function definitions
+
+    This consists of the variable "allFuns" and definitions for the individual functions defined in the configuration file. The functions are all named "fun<x>", where <x> is the position of the function on the list of tokens provided by the user.
+
+    CODE:
+      allFuns :: [String -> Token]
+
+    This is simply a list of the individual functions that is zipped with the list of regular expressions to created the "actions" map.
+
+  4. Lexible function definitions
+
+    This consists of two functions, "getAllTokens" and "matchTokens". Their specifications are given in the user documentation section.
+
+  5. Token type definition
+
+    This contains the token type definition from the configuration file verbatim.
+
+  6. User code and main function
+
+    This contains the code from the code section of the configuration file verbatim.
+
+PERMISSIBLE REGULAR EXPRESSIONS
+
+  1. You may use alphanumeric characters as well as the following symbols in your regular expressions as characters:
+     
+      ':', ';', '=', '<', '>', '&', '%', '-', '/', '\\', 
+      ',', '[', ']', '`', '@', '$', '_', '"', '#', '\'', 
+      '!'
+
+  Note that you MAY NOT use whitespace characters or curly braces anywhere in
+  your regular expressions.
+
+  2. You may use the following regular operators:
+
+      | (union), * (Kleene star), + (plus), ? (optional regex), 
+      [-] (enumerated character class)
+
+      You may also use any of these characters in your regular expressions
+      as long as you escape them beforehand.
+
+  3. You may use '.' to represent an individual character that may be
+  any of the characters in part 1.
+
+  4. You may use sequences of regular expressions.
+
+  5. You may group regular expressions using parentheses.
